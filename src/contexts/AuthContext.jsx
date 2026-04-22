@@ -1,23 +1,10 @@
 // contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api from '../services/api';
+import { authService } from '../services/api';
 
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
-
-// Função segura para parse de JSON
-const safeJsonParse = (item) => {
-  if (!item || item === 'undefined' || item === 'null') {
-    return null;
-  }
-  try {
-    return JSON.parse(item);
-  } catch (error) {
-    console.error('Erro ao fazer parse:', error);
-    return null;
-  }
-};
 
 export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
@@ -27,18 +14,20 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const carregarDadosStorage = () => {
       try {
+        const token = localStorage.getItem('token');
         const usuarioStorage = localStorage.getItem('usuario');
-        const empresaStorage = localStorage.getItem('empresa');
         
-        const usuarioData = safeJsonParse(usuarioStorage);
-        const empresaData = safeJsonParse(empresaStorage);
-        
-        if (usuarioData) setUsuario(usuarioData);
-        if (empresaData) setEmpresa(empresaData);
+        if (token && usuarioStorage && usuarioStorage !== 'undefined') {
+          const usuarioData = JSON.parse(usuarioStorage);
+          setUsuario(usuarioData);
+          
+          if (usuarioData.empresaId) {
+            setEmpresa({ id: usuarioData.empresaId });
+          }
+        }
       } catch (error) {
-        console.error('Erro ao carregar dados do storage:', error);
-        localStorage.removeItem('usuario');
-        localStorage.removeItem('empresa');
+        console.error('Erro ao carregar dados:', error);
+        authService.logout();
       } finally {
         setLoading(false);
       }
@@ -47,64 +36,44 @@ export const AuthProvider = ({ children }) => {
     carregarDadosStorage();
   }, []);
 
-  // contexts/AuthContext.jsx - método login
-const login = async (email, senha) => {
+  const login = async (email, senha) => {
     try {
-        // Mudar para POST com form-urlencoded
-        const formData = new URLSearchParams();
-        formData.append('email', email);
-        formData.append('senha', senha);
+      const response = await authService.login(email, senha);
+      
+      if (response.token) {
+        const usuarioData = {
+          id: response.id,
+          nome: response.nome,
+          email: response.email,
+          papel: response.papel,
+          empresaId: response.empresaId
+        };
         
-        const response = await api.post('/auth/login', formData, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            withCredentials: true
-        });
-        
-        console.log('Resposta do login:', response.data);
-        console.log('Session ID (do cookie):', document.cookie);
-        
-        if (response.data && response.data.id) {
-            const usuarioData = {
-                id: response.data.id,
-                nome: response.data.nome,
-                email: response.data.email,
-                papel: response.data.papel
-            };
-            
-            const empresaData = response.data.empresaId ? { id: response.data.empresaId } : null;
-            
-            setUsuario(usuarioData);
-            if (empresaData) setEmpresa(empresaData);
-            
-            localStorage.setItem('usuario', JSON.stringify(usuarioData));
-            if (empresaData) {
-                localStorage.setItem('empresa', JSON.stringify(empresaData));
-            }
-            
-            // Verificar sessão após login
-            const sessionCheck = await api.get('/auth/session', { withCredentials: true });
-            console.log('Verificação de sessão:', sessionCheck.data);
-            
-            return { success: true };
+        setUsuario(usuarioData);
+        if (response.empresaId) {
+          setEmpresa({ id: response.empresaId });
         }
         
-        return { success: false, error: 'Resposta inválida do servidor' };
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('usuario', JSON.stringify(usuarioData));
+        
+        return { success: true };
+      }
+      
+      return { success: false, error: 'Resposta inválida do servidor' };
     } catch (error) {
-        console.error('Erro no login:', error);
-        if (error.response?.status === 401) {
-            return { success: false, error: 'E-mail ou senha inválidos' };
-        }
-        return { success: false, error: 'Erro ao conectar com o servidor' };
+      console.error('Erro no login:', error);
+      if (error.response?.status === 401) {
+        return { success: false, error: 'E-mail ou senha inválidos' };
+      }
+      return { success: false, error: 'Erro ao conectar com o servidor' };
     }
-};
+  };
 
   const logout = () => {
+    authService.logout();
     setUsuario(null);
     setEmpresa(null);
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('empresa');
   };
 
   return (

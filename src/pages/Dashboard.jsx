@@ -1,10 +1,10 @@
-// src/pages/Dashboard.jsx
+// pages/Dashboard.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import StatusBadge from '../components/StatusBadge';
-import api from '../services/api';
-import { formatCurrency } from '../utils/formatters';
+import { agendamentoService } from '../services/api';
+import { formatCurrency, formatDate, formatTime } from '../services/api';
 
 function Dashboard() {
   const { empresa } = useAuth();
@@ -19,54 +19,42 @@ function Dashboard() {
     faturamento: 0,
   });
 
-  // Mover a função carregarDados para fora do useEffect e usar useCallback
   const carregarDados = useCallback(async () => {
+    if (!empresa?.id) return;
+    
     setLoading(true);
     try {
       const [agendamentosRes, statsRes] = await Promise.all([
-        api.get(`/agendamentos/empresa/${empresa.id}/periodo`, {
-          params: { inicio: dataSelecionada, fim: dataSelecionada }
-        }),
-        api.get(`/agendamentos/empresa/${empresa.id}/estatisticas`, {
-          params: { data: dataSelecionada }
-        })
+        agendamentoService.listarPorPeriodo(empresa.id, dataSelecionada, dataSelecionada),
+        agendamentoService.getEstatisticasPorEmpresa(empresa.id, dataSelecionada)
       ]);
       
-      setAgendamentos(agendamentosRes.data);
-      setEstatisticas(statsRes.data);
+      setAgendamentos(agendamentosRes || []);
+      setEstatisticas(statsRes || {
+        total: 0,
+        confirmados: 0,
+        concluidos: 0,
+        cancelados: 0,
+        faturamento: 0,
+      });
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
-  }, [empresa.id, dataSelecionada]); // Adicionar dependências
+  }, [empresa?.id, dataSelecionada]);
 
   useEffect(() => {
     carregarDados();
-  }, [carregarDados]); // Adicionar carregarDados como dependência
+  }, [carregarDados]);
 
   const atualizarStatus = async (id, status) => {
     try {
-      await api.get(`/agendamentos/${id}/status`, { params: { status } });
+      await agendamentoService.atualizarStatus(id, status);
       carregarDados();
     } catch (error) {
       alert('Erro: ' + (error.response?.data?.message || error.message));
     }
-  };
-
-  const formatarData = (data) => {
-    return new Date(data).toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const formatarHora = (data) => {
-    return new Date(data).toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
   };
 
   return (
@@ -76,7 +64,10 @@ function Dashboard() {
         {/* Header */}
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h2>Dashboard</h2>
-          <button className="btn btn-success">
+          <button 
+            className="btn btn-success"
+            onClick={() => window.location.href = '/agendamentos/novo'}
+          >
             + Novo Agendamento
           </button>
         </div>
@@ -145,7 +136,7 @@ function Dashboard() {
         {/* Tabela */}
         <div className="card">
           <div className="card-header">
-            <h5>Agendamentos - {formatarData(dataSelecionada)}</h5>
+            <h5>Agendamentos - {formatDate(dataSelecionada)}</h5>
           </div>
           <div className="card-body">
             {loading ? (
@@ -171,7 +162,7 @@ function Dashboard() {
                   <tbody>
                     {agendamentos.map((a) => (
                       <tr key={a.id}>
-                        <td className="fw-bold">{formatarHora(a.dataHora)}</td>
+                        <td className="fw-bold">{formatTime(a.dataHora)}</td>
                         <td>{a.clienteNome}</td>
                         <td>{a.profissional?.nome}</td>
                         <td>{a.servico?.nome}</td>

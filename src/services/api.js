@@ -1,51 +1,238 @@
-// services/api.js - Versão completa com todos os serviços
+// services/api.js
 import axios from 'axios';
 
 const api = axios.create({
   baseURL: 'http://localhost:8081/api',
   headers: {
     'Content-Type': 'application/json'
-  },
-  withCredentials: true
+  }
 });
 
-// Adiciona empresaId em todas as requisições
-api.interceptors.request.use((config) => {
-  try {
+// Interceptor para adicionar token em todas as requisições
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Adiciona empresaId se disponível
     const empresa = localStorage.getItem('empresa');
-    if (empresa && empresa !== 'undefined' && empresa !== 'null') {
-      const empresaObj = JSON.parse(empresa);
-      if (config.params) {
-        config.params.empresaId = empresaObj.id;
-      } else {
-        config.params = { empresaId: empresaObj.id };
+    if (empresa && empresa !== 'undefined') {
+      try {
+        const empresaObj = JSON.parse(empresa);
+        if (config.params) {
+          config.params.empresaId = empresaObj.id;
+        } else {
+          config.params = { empresaId: empresaObj.id };
+        }
+      } catch (e) {
+        console.error('Erro ao parse empresa:', e);
       }
     }
-  } catch (error) {
-    console.error('Erro no interceptor de request:', error);
+    
+    console.log('📤 Requisição:', config.method.toUpperCase(), config.url);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  
-  const token = localStorage.getItem('token');
-  if (token && token !== 'undefined' && token !== 'null') {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  
-  return config;
-});
+);
 
-// Trata erro 401
+// Interceptor para tratar erros de autenticação
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('📥 Resposta:', response.status, response.config.url);
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
+      console.log('🔒 Token expirado ou inválido');
+      localStorage.removeItem('token');
       localStorage.removeItem('usuario');
       localStorage.removeItem('empresa');
-      localStorage.removeItem('token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
+
+// ==================== AUTENTICAÇÃO ====================
+export const authService = {
+  login: async (email, senha) => {
+    const formData = new URLSearchParams();
+    formData.append('email', email);
+    formData.append('senha', senha);
+    
+    const response = await api.post('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    return response.data;
+  },
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('empresa');
+  },
+  
+  getToken: () => localStorage.getItem('token'),
+  
+  isAuthenticated: () => !!localStorage.getItem('token')
+};
+
+// ==================== CLIENTES ====================
+export const clienteService = {
+  listar: async (page = 0, size = 20, search = '') => {
+    const response = await api.get('/clientes', { params: { page, size, search } });
+    return response.data;
+  },
+  
+  buscarPorId: async (id) => {
+    const response = await api.get(`/clientes/${id}`);
+    return response.data;
+  },
+  
+  buscarPorTelefone: async (telefone) => {
+    const response = await api.get('/clientes/buscar', { params: { telefone } });
+    return response.data;
+  },
+  
+  criar: async (cliente) => {
+    const response = await api.post('/clientes', cliente);
+    return response.data;
+  },
+  
+  atualizar: async (id, cliente) => {
+    const response = await api.put(`/clientes/${id}`, cliente);
+    return response.data;
+  },
+  
+  toggleStatus: async (id) => {
+    const response = await api.patch(`/clientes/${id}/toggle-status`);
+    return response.data;
+  },
+  
+  deletar: async (id) => {
+    const response = await api.delete(`/clientes/${id}`);
+    return response.data;
+  }
+};
+
+// ==================== PROFISSIONAIS ====================
+export const profissionalService = {
+  listar: async (apenasAtivos = true) => {
+    const response = await api.get('/profissionais', { params: { ativos: apenasAtivos } });
+    return response.data;
+  },
+  
+  buscarPorId: async (id) => {
+    const response = await api.get(`/profissionais/${id}`);
+    return response.data;
+  },
+  
+  criar: async (profissional) => {
+    const response = await api.post('/profissionais', profissional);
+    return response.data;
+  },
+  
+  atualizar: async (id, profissional) => {
+    const response = await api.put(`/profissionais/${id}`, profissional);
+    return response.data;
+  },
+  
+  toggleStatus: async (id) => {
+    const response = await api.patch(`/profissionais/${id}/toggle-status`);
+    return response.data;
+  },
+  
+  deletar: async (id) => {
+    const response = await api.delete(`/profissionais/${id}`);
+    return response.data;
+  }
+};
+
+// ==================== SERVIÇOS ====================
+export const servicoService = {
+  listar: async (apenasAtivos = true) => {
+    const response = await api.get('/servicos', { params: { ativos: apenasAtivos } });
+    return response.data;
+  },
+  
+  buscarPorId: async (id) => {
+    const response = await api.get(`/servicos/${id}`);
+    return response.data;
+  },
+  
+  criar: async (servico) => {
+    const response = await api.post('/servicos', servico);
+    return response.data;
+  },
+  
+  atualizar: async (id, servico) => {
+    const response = await api.put(`/servicos/${id}`, servico);
+    return response.data;
+  },
+  
+  toggleStatus: async (id) => {
+    const response = await api.patch(`/servicos/${id}/toggle-status`);
+    return response.data;
+  },
+  
+  deletar: async (id) => {
+    const response = await api.delete(`/servicos/${id}`);
+    return response.data;
+  }
+};
+
+// ==================== AGENDAMENTOS ====================
+export const agendamentoService = {
+  listar: async (params = {}) => {
+    const response = await api.get('/agendamentos', { params });
+    return response.data;
+  },
+  
+  listarPorData: async (data) => {
+    const response = await api.get('/agendamentos', { params: { data } });
+    return response.data;
+  },
+  
+  listarPorPeriodo: async (empresaId, inicio, fim) => {
+    const response = await api.get(`/agendamentos/empresa/${empresaId}/periodo`, {
+      params: { inicio, fim }
+    });
+    return response.data;
+  },
+  
+  buscarPorId: async (id) => {
+    const response = await api.get(`/agendamentos/${id}`);
+    return response.data;
+  },
+  
+  criar: async (agendamento) => {
+    const response = await api.post('/agendamentos', agendamento);
+    return response.data;
+  },
+  
+  atualizarStatus: async (id, status) => {
+    const response = await api.get(`/agendamentos/${id}/status`, { params: { status } });
+    return response.data;
+  },
+  
+  getEstatisticas: async (data) => {
+    const response = await api.get('/agendamentos/estatisticas', { params: { data } });
+    return response.data;
+  },
+  
+  getEstatisticasPorEmpresa: async (empresaId, data) => {
+    const response = await api.get(`/agendamentos/empresa/${empresaId}/estatisticas`, {
+      params: { data }
+    });
+    return response.data;
+  }
+};
 
 // ==================== FORMATADORES ====================
 export const formatDate = (date) => {
@@ -92,129 +279,4 @@ export const formatCurrency = (value) => {
   }).format(value);
 };
 
-// ==================== CLIENTES ====================
-export const clienteService = {
-  listar: async (page = 0, size = 20, search = '') => {
-    const response = await api.get('/clientes', { params: { page, size, search } });
-    return response.data;
-  },
-  buscarPorId: async (id) => {
-    const response = await api.get(`/clientes/${id}`);
-    return response.data;
-  },
-  buscarPorTelefone: async (telefone) => {
-    const response = await api.get('/clientes/buscar', { params: { telefone } });
-    return response.data;
-  },
-  criar: async (cliente) => {
-    const response = await api.post('/clientes', cliente);
-    return response.data;
-  },
-  atualizar: async (id, cliente) => {
-    const response = await api.put(`/clientes/${id}`, cliente);
-    return response.data;
-  },
-  toggleStatus: async (id) => {
-    const response = await api.patch(`/clientes/${id}/toggle-status`);
-    return response.data;
-  },
-  deletar: async (id) => {
-    const response = await api.delete(`/clientes/${id}`);
-    return response.data;
-  }
-};
-
-// ==================== PROFISSIONAIS ====================
-export const profissionalService = {
-  listar: async (apenasAtivos = true) => {
-    const response = await api.get('/profissionais', { params: { ativos: apenasAtivos } });
-    return response.data;
-  },
-  buscarPorId: async (id) => {
-    const response = await api.get(`/profissionais/${id}`);
-    return response.data;
-  },
-  criar: async (profissional) => {
-    const response = await api.post('/profissionais', profissional);
-    return response.data;
-  },
-  atualizar: async (id, profissional) => {
-    const response = await api.put(`/profissionais/${id}`, profissional);
-    return response.data;
-  },
-  toggleStatus: async (id) => {
-    const response = await api.patch(`/profissionais/${id}/toggle-status`);
-    return response.data;
-  },
-  deletar: async (id) => {
-    const response = await api.delete(`/profissionais/${id}`);
-    return response.data;
-  }
-};
-
-// ==================== SERVIÇOS ====================
-export const servicoService = {
-  listar: async (apenasAtivos = true) => {
-    const response = await api.get('/servicos', { params: { ativos: apenasAtivos } });
-    return response.data;
-  },
-  buscarPorId: async (id) => {
-    const response = await api.get(`/servicos/${id}`);
-    return response.data;
-  },
-  criar: async (servico) => {
-    const response = await api.post('/servicos', servico);
-    return response.data;
-  },
-  atualizar: async (id, servico) => {
-    const response = await api.put(`/servicos/${id}`, servico);
-    return response.data;
-  },
-  toggleStatus: async (id) => {
-    const response = await api.patch(`/servicos/${id}/toggle-status`);
-    return response.data;
-  },
-  deletar: async (id) => {
-    const response = await api.delete(`/servicos/${id}`);
-    return response.data;
-  }
-};
-
-// ==================== AGENDAMENTOS ====================
-export const agendamentoService = {
-  listar: async (params = {}) => {
-    const response = await api.get('/agendamentos', { params });
-    return response.data;
-  },
-  listarHoje: async () => {
-    const response = await api.get('/agendamentos/hoje');
-    return response.data;
-  },
-  listarPorPeriodo: async (inicio, fim) => {
-    const response = await api.get('/agendamentos/periodo', { params: { inicio, fim } });
-    return response.data;
-  },
-  buscarPorId: async (id) => {
-    const response = await api.get(`/agendamentos/${id}`);
-    return response.data;
-  },
-  criar: async (agendamento) => {
-    const response = await api.post('/agendamentos', agendamento);
-    return response.data;
-  },
-  atualizarStatus: async (id, status) => {
-    const response = await api.get(`/agendamentos/${id}/status`, { params: { status } });
-    return response.data;
-  },
-  cancelar: async (id, motivo) => {
-    const response = await api.post(`/agendamentos/${id}/cancelar`, { motivo });
-    return response.data;
-  },
-  getEstatisticas: async (data) => {
-    const response = await api.get('/agendamentos/estatisticas', { params: { data } });
-    return response.data;
-  }
-};
-
-// Exporta a instância padrão
 export default api;
