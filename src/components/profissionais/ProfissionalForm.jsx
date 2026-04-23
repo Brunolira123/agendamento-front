@@ -1,11 +1,11 @@
-// components/clientes/ClienteForm.jsx
+// components/profissionais/ProfissionalForm.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { clienteService } from '../../services/api';
+import { profissionalService } from '../../services/api';
 import Navbar from '../Navbar';
 import BackButton from '../BackButton';
 
-function ClienteForm() {
+function ProfissionalForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = !!id;
@@ -13,30 +13,24 @@ function ClienteForm() {
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
-    telefone: '',
-    cpf: '',
-    dataNascimento: '',
-    observacao: ''
+    telefone: ''
   });
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const carregarCliente = useCallback(async () => {
+  const carregarProfissional = useCallback(async () => {
     setLoading(true);
     try {
-      const cliente = await clienteService.buscarPorId(id);
+      const profissional = await profissionalService.buscarPorId(id);
       setFormData({
-        nome: cliente.nome || '',
-        email: cliente.email || '',
-        telefone: cliente.telefone || '',
-        cpf: cliente.cpf || '',
-        dataNascimento: cliente.dataNascimento || '',
-        observacao: cliente.observacao || ''
+        nome: profissional.nome || '',
+        email: profissional.email || '',
+        telefone: profissional.telefone || ''
       });
     } catch (error) {
-      console.error('Erro ao carregar cliente:', error);
-      alert('Erro ao carregar dados do cliente');
+      console.error('Erro ao carregar profissional:', error);
+      alert('Erro ao carregar dados do profissional');
     } finally {
       setLoading(false);
     }
@@ -44,9 +38,9 @@ function ClienteForm() {
 
   useEffect(() => {
     if (isEditing) {
-      carregarCliente();
+      carregarProfissional();
     }
-  }, [isEditing, carregarCliente]);
+  }, [isEditing, carregarProfissional]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -75,16 +69,16 @@ function ClienteForm() {
     setLoading(true);
     try {
       if (isEditing) {
-        await clienteService.atualizar(id, formData);
-        alert('Cliente atualizado com sucesso!');
+        await profissionalService.atualizar(id, formData);
+        alert('Profissional atualizado com sucesso!');
       } else {
-        await clienteService.criar(formData);
-        alert('Cliente criado com sucesso!');
+        await profissionalService.criar(formData);
+        alert('Profissional criado com sucesso!');
       }
-      navigate('/clientes');
+      navigate('/profissionais');
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      const errorMsg = error.response?.data?.error || 'Erro ao salvar cliente';
+      const errorMsg = error.response?.data?.error || 'Erro ao salvar profissional';
       alert(errorMsg);
     } finally {
       setLoading(false);
@@ -98,7 +92,7 @@ function ClienteForm() {
         <BackButton />
         <div className="card">
           <div className="card-header">
-            <h4>{isEditing ? 'Editar Cliente' : 'Novo Cliente'}</h4>
+            <h4>{isEditing ? 'Editar Profissional' : 'Novo Profissional'}</h4>
           </div>
           <div className="card-body">
             <form onSubmit={handleSubmit}>
@@ -117,6 +111,20 @@ function ClienteForm() {
                 </div>
                 
                 <div className="col-md-6 mb-3">
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
+                    name="email"
+                    placeholder="profissional@exemplo.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                  {errors.email && <div className="invalid-feedback">{errors.email}</div>}
+                </div>
+                
+                <div className="col-md-6 mb-3">
                   <label className="form-label">Telefone</label>
                   <input
                     type="tel"
@@ -128,64 +136,13 @@ function ClienteForm() {
                     disabled={loading}
                   />
                 </div>
-                
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Email</label>
-                  <input
-                    type="email"
-                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
-                    name="email"
-                    placeholder="cliente@exemplo.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                  {errors.email && <div className="invalid-feedback">{errors.email}</div>}
-                </div>
-                
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">CPF</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="cpf"
-                    placeholder="111.111.111-11"
-                    value={formData.cpf}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
-                
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Data de Nascimento</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    name="dataNascimento"
-                    value={formData.dataNascimento}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
-                
-                <div className="col-12 mb-3">
-                  <label className="form-label">Observação</label>
-                  <textarea
-                    className="form-control"
-                    name="observacao"
-                    rows="3"
-                    value={formData.observacao}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
               </div>
               
               <div className="d-flex justify-content-end gap-2">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => navigate('/clientes')}
+                  onClick={() => navigate('/profissionais')}
                   disabled={loading}
                 >
                   Cancelar
@@ -206,4 +163,4 @@ function ClienteForm() {
   );
 }
 
-export default ClienteForm;
+export default ProfissionalForm;

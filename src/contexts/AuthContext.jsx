@@ -1,6 +1,6 @@
 // contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authService } from '../services/api';
+import api from '../services/api';
 
 const AuthContext = createContext({});
 
@@ -12,79 +12,85 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const carregarDadosStorage = () => {
+    // Verificar se já está logado ao carregar a página
+    const token = localStorage.getItem('token');
+    const usuarioStorage = localStorage.getItem('usuario');
+    
+    console.log('🔍 AuthProvider - token:', !!token);
+    console.log('🔍 AuthProvider - usuarioStorage:', !!usuarioStorage);
+    
+    if (token && usuarioStorage) {
       try {
-        const token = localStorage.getItem('token');
-        const usuarioStorage = localStorage.getItem('usuario');
-        
-        if (token && usuarioStorage && usuarioStorage !== 'undefined') {
-          const usuarioData = JSON.parse(usuarioStorage);
-          setUsuario(usuarioData);
-          
-          if (usuarioData.empresaId) {
-            setEmpresa({ id: usuarioData.empresaId });
-          }
+        const usuarioData = JSON.parse(usuarioStorage);
+        setUsuario(usuarioData);
+        if (usuarioData.empresaId) {
+          setEmpresa({ id: usuarioData.empresaId });
         }
+        console.log('✅ Usuário restaurado:', usuarioData.email);
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        authService.logout();
-      } finally {
-        setLoading(false);
+        console.error('Erro ao restaurar usuário:', error);
       }
-    };
-
-    carregarDadosStorage();
+    }
+    setLoading(false);
   }, []);
 
   const login = async (email, senha) => {
     try {
-      const response = await authService.login(email, senha);
+      console.log('🔐 Login iniciado');
       
-      if (response.token) {
+      // Chamada direta à API
+      const formData = new URLSearchParams();
+      formData.append('email', email);
+      formData.append('senha', senha);
+      
+      const response = await api.post('/auth/login', formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      
+      console.log('📦 Resposta:', response.data);
+      
+      if (response.data.token) {
+           console.log('✅ Login OK! Token salvo no localStorage');
         const usuarioData = {
-          id: response.id,
-          nome: response.nome,
-          email: response.email,
-          papel: response.papel,
-          empresaId: response.empresaId
+          id: response.data.id,
+          nome: response.data.nome,
+          email: response.data.email,
+          papel: response.data.papel,
+          empresaId: response.data.empresaId || 1
         };
         
-        setUsuario(usuarioData);
-        if (response.empresaId) {
-          setEmpresa({ id: response.empresaId });
-        }
-        
-        localStorage.setItem('token', response.token);
+        // Salvar no localStorage
+        localStorage.setItem('token', response.data.token);
         localStorage.setItem('usuario', JSON.stringify(usuarioData));
+
+        const savedToken = localStorage.getItem('token');
+      console.log('Verificação pós-salvamento - token:', !!savedToken);
         
+        // Atualizar estado
+        setUsuario(usuarioData);
+        setEmpresa({ id: usuarioData.empresaId });
+        
+        console.log('✅ Login OK! Token salvo.');
         return { success: true };
       }
       
-      return { success: false, error: 'Resposta inválida do servidor' };
+      return { success: false, error: 'Erro no login' };
     } catch (error) {
-      console.error('Erro no login:', error);
-      if (error.response?.status === 401) {
-        return { success: false, error: 'E-mail ou senha inválidos' };
-      }
-      return { success: false, error: 'Erro ao conectar com o servidor' };
+      console.error('❌ Erro:', error);
+      return { success: false, error: 'Credenciais inválidas' };
     }
   };
 
   const logout = () => {
-    authService.logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
     setUsuario(null);
     setEmpresa(null);
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      usuario, 
-      empresa, 
-      login, 
-      logout, 
-      loading,
-      isAuthenticated: !!usuario 
-    }}>
+    <AuthContext.Provider value={{ usuario, empresa, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,6 @@
 // pages/Login.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -9,7 +8,6 @@ function Login() {
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,11 +17,12 @@ function Login() {
     const result = await login(email, senha);
     
     if (result.success) {
-      navigate('/dashboard');
+      // Forçar recarregamento da página em vez de navigate
+      window.location.href = '/dashboard';
     } else {
       setErro(result.error);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

@@ -1,52 +1,47 @@
-// components/clientes/ClienteForm.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+// components/servicos/ServicoForm.jsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { clienteService } from '../../services/api';
+import { servicoService } from '../../services/api';
 import Navbar from '../Navbar';
-import BackButton from '../BackButton';
 
-function ClienteForm() {
+function ServicoForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = !!id;
   
   const [formData, setFormData] = useState({
     nome: '',
-    email: '',
-    telefone: '',
-    cpf: '',
-    dataNascimento: '',
-    observacao: ''
+    descricao: '',
+    preco: '',
+    duracaoMinutos: '30'
   });
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const carregarCliente = useCallback(async () => {
-    setLoading(true);
-    try {
-      const cliente = await clienteService.buscarPorId(id);
-      setFormData({
-        nome: cliente.nome || '',
-        email: cliente.email || '',
-        telefone: cliente.telefone || '',
-        cpf: cliente.cpf || '',
-        dataNascimento: cliente.dataNascimento || '',
-        observacao: cliente.observacao || ''
-      });
-    } catch (error) {
-      console.error('Erro ao carregar cliente:', error);
-      alert('Erro ao carregar dados do cliente');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (isEditing) {
+      carregarServico();
     }
   }, [id]);
 
-  useEffect(() => {
-    if (isEditing) {
-      carregarCliente();
+  const carregarServico = async () => {
+    setLoading(true);
+    try {
+      const servico = await servicoService.buscarPorId(id);
+      setFormData({
+        nome: servico.nome || '',
+        descricao: servico.descricao || '',
+        preco: servico.preco || '',
+        duracaoMinutos: servico.duracaoMinutos || '30'
+      });
+    } catch (error) {
+      console.error('Erro ao carregar serviço:', error);
+      alert('Erro ao carregar dados do serviço');
+    } finally {
+      setLoading(false);
     }
-  }, [isEditing, carregarCliente]);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -61,8 +56,11 @@ function ClienteForm() {
     if (!formData.nome.trim()) {
       newErrors.nome = 'Nome é obrigatório';
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email inválido';
+    if (!formData.preco || parseFloat(formData.preco) <= 0) {
+      newErrors.preco = 'Preço deve ser maior que zero';
+    }
+    if (!formData.duracaoMinutos || parseInt(formData.duracaoMinutos) <= 0) {
+      newErrors.duracaoMinutos = 'Duração deve ser maior que zero';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,17 +72,23 @@ function ClienteForm() {
     
     setLoading(true);
     try {
+      const dados = {
+        ...formData,
+        preco: parseFloat(formData.preco),
+        duracaoMinutos: parseInt(formData.duracaoMinutos)
+      };
+      
       if (isEditing) {
-        await clienteService.atualizar(id, formData);
-        alert('Cliente atualizado com sucesso!');
+        await servicoService.atualizar(id, dados);
+        alert('Serviço atualizado com sucesso!');
       } else {
-        await clienteService.criar(formData);
-        alert('Cliente criado com sucesso!');
+        await servicoService.criar(dados);
+        alert('Serviço criado com sucesso!');
       }
-      navigate('/clientes');
+      navigate('/servicos');
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      const errorMsg = error.response?.data?.error || 'Erro ao salvar cliente';
+      const errorMsg = error.response?.data?.error || 'Erro ao salvar serviço';
       alert(errorMsg);
     } finally {
       setLoading(false);
@@ -95,10 +99,9 @@ function ClienteForm() {
     <>
       <Navbar />
       <div className="container mt-4">
-        <BackButton />
         <div className="card">
           <div className="card-header">
-            <h4>{isEditing ? 'Editar Cliente' : 'Novo Cliente'}</h4>
+            <h4>{isEditing ? 'Editar Serviço' : 'Novo Serviço'}</h4>
           </div>
           <div className="card-body">
             <form onSubmit={handleSubmit}>
@@ -117,64 +120,42 @@ function ClienteForm() {
                 </div>
                 
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Telefone</label>
+                  <label className="form-label">Preço *</label>
                   <input
-                    type="tel"
-                    className="form-control"
-                    name="telefone"
-                    placeholder="(11) 99999-9999"
-                    value={formData.telefone}
+                    type="number"
+                    step="0.01"
+                    className={`form-control ${errors.preco ? 'is-invalid' : ''}`}
+                    name="preco"
+                    placeholder="49.90"
+                    value={formData.preco}
                     onChange={handleChange}
                     disabled={loading}
                   />
+                  {errors.preco && <div className="invalid-feedback">{errors.preco}</div>}
                 </div>
                 
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Duração (minutos) *</label>
                   <input
-                    type="email"
-                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
-                    name="email"
-                    placeholder="cliente@exemplo.com"
-                    value={formData.email}
+                    type="number"
+                    className={`form-control ${errors.duracaoMinutos ? 'is-invalid' : ''}`}
+                    name="duracaoMinutos"
+                    placeholder="30"
+                    value={formData.duracaoMinutos}
                     onChange={handleChange}
                     disabled={loading}
                   />
-                  {errors.email && <div className="invalid-feedback">{errors.email}</div>}
-                </div>
-                
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">CPF</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="cpf"
-                    placeholder="111.111.111-11"
-                    value={formData.cpf}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                </div>
-                
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Data de Nascimento</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    name="dataNascimento"
-                    value={formData.dataNascimento}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
+                  {errors.duracaoMinutos && <div className="invalid-feedback">{errors.duracaoMinutos}</div>}
                 </div>
                 
                 <div className="col-12 mb-3">
-                  <label className="form-label">Observação</label>
+                  <label className="form-label">Descrição</label>
                   <textarea
                     className="form-control"
-                    name="observacao"
+                    name="descricao"
                     rows="3"
-                    value={formData.observacao}
+                    placeholder="Descrição do serviço..."
+                    value={formData.descricao}
                     onChange={handleChange}
                     disabled={loading}
                   />
@@ -185,7 +166,7 @@ function ClienteForm() {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => navigate('/clientes')}
+                  onClick={() => navigate('/servicos')}
                   disabled={loading}
                 >
                   Cancelar
@@ -206,4 +187,4 @@ function ClienteForm() {
   );
 }
 
-export default ClienteForm;
+export default ServicoForm;
