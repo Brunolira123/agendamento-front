@@ -1,4 +1,3 @@
-// pages/Dashboard.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
@@ -12,7 +11,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dataSelecionada, setDataSelecionada] = useState(new Date().toISOString().split('T')[0]);
   const [profissionalSelecionado, setProfissionalSelecionado] = useState('todos');
-  const [viewMode, setViewMode] = useState('agenda'); // 'agenda', 'lista', 'cards'
+  const [viewMode, setViewMode] = useState('agenda');
   const [estatisticas, setEstatisticas] = useState({
     total: 0,
     confirmados: 0,
@@ -27,18 +26,24 @@ function Dashboard() {
   // Carregar dados
   const carregarDados = useCallback(async () => {
     let empresaId = empresa?.id;
+    
+    // Tenta recuperar do localStorage se não tiver no estado
     if (!empresaId) {
       const empresaStorage = localStorage.getItem('empresa');
-      if (empresaStorage) {
+      if (empresaStorage && empresaStorage !== 'undefined') {
         try {
           const empresaData = JSON.parse(empresaStorage);
           empresaId = empresaData.id;
-        } catch (e) {}
+          console.log('Empresa recuperada do localStorage:', empresaId);
+        } catch (e) {
+          console.error('Erro ao parse empresa:', e);
+        }
       }
     }
     
+    // Se ainda não tem empresaId, aguarda
     if (!empresaId) {
-      console.log('Aguardando empresa...');
+      console.log('Aguardando empresaId...');
       setLoading(false);
       return;
     }
@@ -132,6 +137,17 @@ function Dashboard() {
 
   const hoje = new Date().toISOString().split('T')[0];
 
+  // Se não tem empresa, mostra loading
+  if (!empresa?.id && !localStorage.getItem('empresa')) {
+    return (
+      <div className="d-flex justify-content-center align-items-center min-vh-100">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Carregando...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Navbar />
@@ -141,7 +157,7 @@ function Dashboard() {
           <div>
             <h2 className="mb-0">Dashboard</h2>
             <p className="text-muted mb-0">
-              Bem-vindo, {usuario?.nome || 'Usuário'}!
+            Bem-vindo, {usuario?.nome || 'Usuário'}!
             </p>
           </div>
           <div className="d-flex gap-2">
@@ -149,18 +165,21 @@ function Dashboard() {
               <button 
                 className={`btn ${viewMode === 'cards' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => setViewMode('cards')}
+                title="Visualização em Cards"
               >
                 📊 Cards
               </button>
               <button 
                 className={`btn ${viewMode === 'agenda' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => setViewMode('agenda')}
+                title="Visualização em Agenda"
               >
                 📅 Agenda
               </button>
               <button 
                 className={`btn ${viewMode === 'lista' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => setViewMode('lista')}
+                title="Visualização em Lista"
               >
                 📋 Lista
               </button>
@@ -174,7 +193,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Cards de Estatísticas (sempre visíveis) */}
+        {/* Cards de Estatísticas */}
         <div className="row mb-4">
           <div className="col-md-3 mb-2">
             <div className="card bg-primary text-white">
@@ -230,7 +249,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Seletor de Data */}
+        {/* Seletor de Data e Filtros */}
         <div className="card mb-4">
           <div className="card-body">
             <div className="row align-items-center">
@@ -279,16 +298,16 @@ function Dashboard() {
                 </select>
               </div>
               <div className="col-md-4">
-                <label className="form-label fw-bold">📊 Visualização</label>
+                <label className="form-label fw-bold">📊 Resumo</label>
                 <div className="text-muted">
-                  {formatDate(dataSelecionada)} • {agendamentos.length} agendamentos
+                  {formatDate(dataSelecionada)} • {agendamentos.length} agendamento(s)
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Próximos Atendimentos */}
+        {/* Próximos Atendimentos (apenas nas views que não são agenda) */}
         {proximosAtendimentos.length > 0 && viewMode !== 'agenda' && (
           <div className="card mb-4">
             <div className="card-header bg-dark text-white">
@@ -319,6 +338,7 @@ function Dashboard() {
           </div>
         )}
 
+        {/* Conteúdo Principal */}
         {loading ? (
           <div className="text-center py-5">
             <div className="spinner-border text-primary" role="status">
@@ -327,7 +347,7 @@ function Dashboard() {
             <p className="mt-2">Carregando agenda...</p>
           </div>
         ) : viewMode === 'cards' ? (
-          // VISÃO CARDS
+          // ==================== VISÃO CARDS ====================
           <div className="row">
             {agendamentos.length === 0 ? (
               <div className="col-12">
@@ -378,18 +398,27 @@ function Dashboard() {
                     <div className="card-footer bg-transparent">
                       <div className="btn-group w-100">
                         {a.status !== 'CONFIRMADO' && a.status !== 'CONCLUIDO' && (
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => atualizarStatus(a.id, 'CONFIRMADO')}>
-                            Confirmar
+                          <button 
+                            className="btn btn-sm btn-outline-primary" 
+                            onClick={() => atualizarStatus(a.id, 'CONFIRMADO')}
+                          >
+                            ✅ Confirmar
                           </button>
                         )}
                         {a.status !== 'CONCLUIDO' && (
-                          <button className="btn btn-sm btn-outline-success" onClick={() => atualizarStatus(a.id, 'CONCLUIDO')}>
-                            Concluir
+                          <button 
+                            className="btn btn-sm btn-outline-success" 
+                            onClick={() => atualizarStatus(a.id, 'CONCLUIDO')}
+                          >
+                            ✔️ Concluir
                           </button>
                         )}
                         {a.status !== 'CANCELADO' && a.status !== 'CONCLUIDO' && (
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => atualizarStatus(a.id, 'CANCELADO')}>
-                            Cancelar
+                          <button 
+                            className="btn btn-sm btn-outline-danger" 
+                            onClick={() => atualizarStatus(a.id, 'CANCELADO')}
+                          >
+                            ❌ Cancelar
                           </button>
                         )}
                       </div>
@@ -400,75 +429,87 @@ function Dashboard() {
             )}
           </div>
         ) : viewMode === 'agenda' ? (
-          // VISÃO AGENDA (Grade de Horários)
+          // ==================== VISÃO AGENDA (Grade de Horários) ====================
           <div className="card">
             <div className="card-header bg-dark text-white">
               <h5 className="mb-0">📅 Agenda do Dia - {formatDate(dataSelecionada)}</h5>
             </div>
             <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table table-bordered mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th style={{ width: '80px' }} className="text-center">Horário</th>
-                      {profissionaisFiltrados.map(profissional => (
-                        <th key={profissional.id} className="text-center">{profissional.nome}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {horarios.map(hora => {
-                      const horaStr = `${hora.toString().padStart(2, '0')}:00`;
-                      return (
-                        <tr key={hora}>
-                          <td className="fw-bold text-center bg-light">{horaStr}</td>
-                          {profissionaisFiltrados.map(profissional => {
-                            const agendamento = getAgendamento(profissional.id, hora);
-                            const hasAgendamento = !!agendamento;
-                            
-                            return (
-                              <td 
-                                key={profissional.id} 
-                                className={hasAgendamento ? getStatusColor(agendamento.status) : ''}
-                                style={{ 
-                                  cursor: 'pointer',
-                                  backgroundColor: hasAgendamento ? undefined : '#f8f9fa',
-                                  verticalAlign: 'middle'
-                                }}
-                                onClick={() => {
-                                  if (hasAgendamento) {
-                                    alert(`📋 Cliente: ${agendamento.clienteNome}\n✂️ Serviço: ${agendamento.servico?.nome}\n💰 Valor: ${formatCurrency(agendamento.precoCobrado)}\n📝 Status: ${agendamento.status}`);
-                                  }
-                                }}
-                              >
-                                {hasAgendamento ? (
-                                  <div className="text-white">
-                                    <div className="fw-bold">{agendamento.clienteNome}</div>
-                                    <small>{agendamento.servico?.nome}</small>
-                                    <div className="mt-1">
-                                      <span className="badge bg-light text-dark">
-                                        {formatCurrency(agendamento.precoCobrado)}
-                                      </span>
+              {profissionaisFiltrados.length === 0 ? (
+                <div className="text-center py-5">
+                  <p className="text-muted">Nenhum profissional cadastrado</p>
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={() => window.location.href = '/profissionais'}
+                  >
+                    + Cadastrar profissional
+                  </button>
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table table-bordered mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ width: '80px' }} className="text-center">Horário</th>
+                        {profissionaisFiltrados.map(profissional => (
+                          <th key={profissional.id} className="text-center">{profissional.nome}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {horarios.map(hora => {
+                        const horaStr = `${hora.toString().padStart(2, '0')}:00`;
+                        return (
+                          <tr key={hora}>
+                            <td className="fw-bold text-center bg-light">{horaStr}</td>
+                            {profissionaisFiltrados.map(profissional => {
+                              const agendamento = getAgendamento(profissional.id, hora);
+                              const hasAgendamento = !!agendamento;
+                              
+                              return (
+                                <td 
+                                  key={profissional.id} 
+                                  className={hasAgendamento ? getStatusColor(agendamento.status) : ''}
+                                  style={{ 
+                                    cursor: 'pointer',
+                                    backgroundColor: hasAgendamento ? undefined : '#f8f9fa',
+                                    verticalAlign: 'middle'
+                                  }}
+                                  onClick={() => {
+                                    if (hasAgendamento) {
+                                      alert(`📋 Cliente: ${agendamento.clienteNome}\n✂️ Serviço: ${agendamento.servico?.nome}\n💰 Valor: ${formatCurrency(agendamento.precoCobrado)}\n📝 Status: ${agendamento.status}`);
+                                    }
+                                  }}
+                                >
+                                  {hasAgendamento ? (
+                                    <div className="text-white">
+                                      <div className="fw-bold">{agendamento.clienteNome}</div>
+                                      <small>{agendamento.servico?.nome}</small>
+                                      <div className="mt-1">
+                                        <span className="badge bg-light text-dark">
+                                          {formatCurrency(agendamento.precoCobrado)}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="text-muted text-center">
-                                    <small>— Disponível —</small>
-                                  </div>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                  ) : (
+                                    <div className="text-muted text-center">
+                                      <small>— Disponível —</small>
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          // VISÃO LISTA (Tabela tradicional)
+          // ==================== VISÃO LISTA (Tabela tradicional) ====================
           <div className="card">
             <div className="card-header bg-dark text-white">
               <h5 className="mb-0">📋 Lista de Agendamentos - {formatDate(dataSelecionada)}</h5>
@@ -512,18 +553,30 @@ function Dashboard() {
                           <td>
                             <div className="btn-group btn-group-sm">
                               {a.status !== 'CONFIRMADO' && a.status !== 'CONCLUIDO' && (
-                                <button className="btn btn-outline-primary" onClick={() => atualizarStatus(a.id, 'CONFIRMADO')}>
-                                  Confirmar
+                                <button 
+                                  className="btn btn-outline-primary" 
+                                  onClick={() => atualizarStatus(a.id, 'CONFIRMADO')}
+                                  title="Confirmar"
+                                >
+                                  ✅
                                 </button>
                               )}
                               {a.status !== 'CONCLUIDO' && (
-                                <button className="btn btn-outline-success" onClick={() => atualizarStatus(a.id, 'CONCLUIDO')}>
-                                  Concluir
+                                <button 
+                                  className="btn btn-outline-success" 
+                                  onClick={() => atualizarStatus(a.id, 'CONCLUIDO')}
+                                  title="Concluir"
+                                >
+                                  ✔️
                                 </button>
                               )}
                               {a.status !== 'CANCELADO' && a.status !== 'CONCLUIDO' && (
-                                <button className="btn btn-outline-danger" onClick={() => atualizarStatus(a.id, 'CANCELADO')}>
-                                  Cancelar
+                                <button 
+                                  className="btn btn-outline-danger" 
+                                  onClick={() => atualizarStatus(a.id, 'CANCELADO')}
+                                  title="Cancelar"
+                                >
+                                  ❌
                                 </button>
                               )}
                             </div>

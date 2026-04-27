@@ -35,51 +35,42 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, senha) => {
-    try {
-      console.log('🔐 Login iniciado');
+  try {
+    console.log('🔐 Login iniciado');
+    
+    // Usando params conforme seu backend espera
+    const response = await api.post('/auth/login', null, {
+      params: { email, senha }
+    });
+    
+    console.log('📦 Resposta:', response.data);
+    
+    if (response.data.token) {
+      console.log('✅ Login OK! Token salvo');
+      const usuarioData = {
+        id: response.data.id,
+        nome: response.data.nome,
+        email: response.data.email,
+        papel: response.data.papel,
+        empresaId: response.data.empresaId || 1
+      };
       
-      // Chamada direta à API
-      const formData = new URLSearchParams();
-      formData.append('email', email);
-      formData.append('senha', senha);
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('usuario', JSON.stringify(usuarioData));
+      localStorage.setItem('empresa', JSON.stringify({ id: usuarioData.empresaId }));
       
-      const response = await api.post('/auth/login', formData, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
+      setUsuario(usuarioData);
+      setEmpresa({ id: usuarioData.empresaId });
       
-      console.log('📦 Resposta:', response.data);
-      
-      if (response.data.token) {
-           console.log('✅ Login OK! Token salvo no localStorage');
-        const usuarioData = {
-          id: response.data.id,
-          nome: response.data.nome,
-          email: response.data.email,
-          papel: response.data.papel,
-          empresaId: response.data.empresaId || 1
-        };
-        
-        // Salvar no localStorage
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('usuario', JSON.stringify(usuarioData));
-
-        const savedToken = localStorage.getItem('token');
-      console.log('Verificação pós-salvamento - token:', !!savedToken);
-        
-        // Atualizar estado
-        setUsuario(usuarioData);
-        setEmpresa({ id: usuarioData.empresaId });
-        
-        console.log('✅ Login OK! Token salvo.');
-        return { success: true };
-      }
-      
-      return { success: false, error: 'Erro no login' };
-    } catch (error) {
-      console.error('❌ Erro:', error);
-      return { success: false, error: 'Credenciais inválidas' };
+      return { success: true };
     }
-  };
+    
+    return { success: false, error: 'Erro no login' };
+  } catch (error) {
+    console.error('❌ Erro:', error);
+    return { success: false, error: 'Credenciais inválidas' };
+  }
+};
 
   const logout = () => {
     localStorage.removeItem('token');

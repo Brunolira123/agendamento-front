@@ -64,10 +64,8 @@ export const authService = {
     formData.append('email', email);
     formData.append('senha', senha);
     
-    const response = await api.post('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
+    const response = await api.post('/auth/login', null, {
+      params: { email, senha }
     });
     return response.data;
   },
