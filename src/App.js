@@ -12,32 +12,47 @@ import ProfissionalForm from './components/profissionais/ProfissionalForm';
 import ServicosList from './components/servicos/ServicosList';
 import ServicoForm from './components/servicos/ServicoForm';
 import Cadastro from './pages/Cadastro';
+import LandingPage from './pages/LandingPage';
+import Planos from './pages/Planos';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-// Componente de rota privada (melhorado)
-function PrivateRoute({ children }) {
+// Componente de rota privada
+function PrivateRoute({ children, requireAdmin = false }) {
   const token = localStorage.getItem('token');
   const usuarioStorage = localStorage.getItem('usuario');
   
-  // Remove logs em produção, mantém apenas para debug
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔒 PrivateRoute - Token:', !!token, 'Usuario:', !!usuarioStorage);
+  if (!token || !usuarioStorage) {
+    console.log('🔒 PrivateRoute: Sem token ou usuário, redirecionando para login');
+    return <Navigate to="/login" replace />;
   }
   
-  if (token && usuarioStorage) {
-    return children;
+  // Verificar se precisa ser admin
+  if (requireAdmin) {
+    try {
+      const usuario = JSON.parse(usuarioStorage);
+      if (usuario.papel !== 'ADMIN') {
+        console.log('❌ Acesso negado: usuário não é admin', usuario.papel);
+        return <Navigate to="/dashboard" replace />;
+      }
+      console.log('✅ Acesso admin permitido para:', usuario.email);
+    } catch (e) {
+      console.error('Erro ao parse usuarioStorage:', e);
+      return <Navigate to="/login" replace />;
+    }
   }
   
-  return <Navigate to="/login" replace />;
+  return children;
 }
 
-// Componente de rota pública (já logado não precisa ver login)
+// Componente de rota pública
 function PublicRoute({ children }) {
   const token = localStorage.getItem('token');
   
   if (token) {
+    console.log('🔒 PublicRoute: Usuário já logado, redirecionando');
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -53,6 +68,8 @@ function AppRoutes() {
           <Login />
         </PublicRoute>
       } />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/planos" element={<Planos />} />
       <Route path="/cadastro" element={
         <PublicRoute>
           <Cadastro />
@@ -63,6 +80,13 @@ function AppRoutes() {
       <Route path="/dashboard" element={
         <PrivateRoute>
           <Dashboard />
+        </PrivateRoute>
+      } />
+      
+      {/* Rotas Privadas - Admin (requer papel ADMIN) */}
+      <Route path="/admin" element={
+        <PrivateRoute requireAdmin={true}>
+          <AdminDashboard />
         </PrivateRoute>
       } />
       
@@ -129,9 +153,8 @@ function AppRoutes() {
         </PrivateRoute>
       } />
       
-      {/* Redirecionamentos */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      {/* Redirecionamento padrão */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

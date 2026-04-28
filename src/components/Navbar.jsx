@@ -1,4 +1,3 @@
-// components/Navbar.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,6 +55,15 @@ export default function Navbar() {
                 <span className="badge bg-success">+ Novo Agendamento</span>
               </Link>
             </li>
+            
+            {/* Link Admin - só aparece se usuário for ADMIN */}
+            {usuario?.papel === 'ADMIN' && (
+              <li className="nav-item">
+                <Link className="nav-link text-warning fw-bold" to="/admin" onClick={() => setIsOpen(false)}>
+                  👑 Admin
+                </Link>
+              </li>
+            )}
           </ul>
           
           <ul className="navbar-nav">
@@ -71,8 +79,14 @@ export default function Navbar() {
               </button>
               <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                 <li>
-                  <button className="dropdown-item" onClick={handleLogout}>
-                    Sair
+                  <Link className="dropdown-item" to="/planos">
+                    📋 Planos
+                  </Link>
+                </li>
+                <li><hr className="dropdown-divider" /></li>
+                <li>
+                  <button className="dropdown-item text-danger" onClick={handleLogout}>
+                    🚪 Sair
                   </button>
                 </li>
               </ul>

@@ -122,7 +122,10 @@ export const clienteService = {
 // ==================== PROFISSIONAIS ====================
 export const profissionalService = {
   listar: async (apenasAtivos = true) => {
-    const response = await api.get('/profissionais', { params: { ativos: apenasAtivos } });
+    // Não enviar empresaId como parâmetro, pois o interceptor já adiciona
+    const response = await api.get('/profissionais', { 
+      params: { ativos: apenasAtivos }
+    });
     return response.data;
   },
   
@@ -275,6 +278,47 @@ export const formatCurrency = (value) => {
     style: 'currency',
     currency: 'BRL'
   }).format(value);
+};
+
+// ==================== PLANOS ====================
+export const planoService = {
+  listar: async () => {
+    const response = await api.get('/planos');
+    return response.data;
+  },
+  
+  buscarPorId: async (id) => {
+    const response = await api.get(`/planos/${id}`);
+    return response.data;
+  },
+  
+  buscarPorSlug: async (slug) => {
+    const response = await api.get(`/planos/slug/${slug}`);
+    return response.data;
+  }
+};
+
+// ==================== ASSINATURAS ====================
+export const assinaturaService = {
+  criar: async (dados) => {
+    const response = await api.post('/assinaturas', dados);
+    return response.data;
+  },
+  
+  buscarAtual: async () => {
+    const response = await api.get('/assinaturas/atual');
+    return response.data;
+  },
+  
+  cancelar: async (id) => {
+    const response = await api.delete(`/assinaturas/${id}`);
+    return response.data;
+  },
+  
+  historico: async () => {
+    const response = await api.get('/assinaturas/historico');
+    return response.data;
+  }
 };
 
 export default api;
