@@ -40,6 +40,7 @@ function Planos() {
     } catch (error) {
       // Não tem assinatura ativa
       console.log('Nenhuma assinatura ativa');
+      setAssinaturaAtual(null);
     }
   };
 
@@ -49,9 +50,16 @@ function Planos() {
       localStorage.setItem('planoEscolhido', JSON.stringify({
         id: plano.id,
         slug: plano.slug,
-        periodo: periodo
+        periodo: periodo,
+        precoMensal: plano.precoMensal
       }));
       navigate('/cadastro');
+      return;
+    }
+
+    // Se já tem assinatura ativa, redirecionar para checkout
+    if (assinaturaAtual && assinaturaAtual.status === 'ATIVA') {
+      navigate('/checkout');
       return;
     }
 
@@ -64,16 +72,18 @@ function Planos() {
         periodo: periodo
       });
       
-      // Redirecionar para checkout ou dashboard
-      if (assinatura.requiresPayment) {
-        navigate('/checkout', { state: { assinatura } });
-      } else {
-        // Teste grátis, já ativou
-        navigate('/dashboard');
-      }
+      // Redirecionar para checkout
+      navigate('/checkout', { state: { assinatura } });
     } catch (error) {
       console.error('Erro ao assinar:', error);
-      alert(error.response?.data?.message || 'Erro ao processar assinatura');
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Erro ao processar assinatura';
+      
+      // Se o erro for "já existe assinatura", redirecionar para checkout
+      if (errorMsg.includes('já existe') || errorMsg.includes('ativa')) {
+        navigate('/checkout');
+      } else {
+        alert(errorMsg);
+      }
     } finally {
       setAssinando(false);
     }
@@ -84,6 +94,13 @@ function Planos() {
       return plano.precoAnual;
     }
     return plano.precoMensal;
+  };
+
+  const getEconomia = (plano) => {
+    if (periodo === 'anual' && plano.precoAnual) {
+      return (plano.precoMensal * 12) - plano.precoAnual;
+    }
+    return 0;
   };
 
   if (loading) {
@@ -151,7 +168,7 @@ function Planos() {
                   </h2>
                   {periodo === 'anual' && plano.precoAnual && (
                     <p className="text-success small">
-                      Economize R$ {(plano.precoMensal * 12) - plano.precoAnual} por ano!
+                      Economize R$ {getEconomia(plano)} por ano!
                     </p>
                   )}
                 </div>
@@ -191,7 +208,7 @@ function Planos() {
                     <span className="spinner-border spinner-border-sm me-2" role="status" />
                   ) : !usuario ? (
                     'Começar teste grátis'
-                  ) : assinaturaAtual?.planoId === plano.id ? (
+                  ) : assinaturaAtual?.plano?.id === plano.id ? (
                     'Plano atual ✓'
                   ) : (
                     'Assinar agora'
@@ -212,14 +229,25 @@ function Planos() {
         {assinaturaAtual && (
           <div className="mt-4 text-center">
             <div className="alert alert-info">
-              <strong>📌 Seu plano atual:</strong> {assinaturaAtual.planoNome} • 
-              Próxima cobrança: {new Date(assinaturaAtual.dataFim).toLocaleDateString('pt-BR')}
-              {assinaturaAtual.planoSlug !== 'profissional' && (
+              <strong>📌 Seu plano atual:</strong> {assinaturaAtual.plano?.nome || 'Profissional'} • 
+              Status: {assinaturaAtual.status === 'TESTE' ? 'Teste grátis' : 'Ativo'} • 
+              {assinaturaAtual.dataFim && (
+                <> Válido até: {new Date(assinaturaAtual.dataFim).toLocaleDateString('pt-BR')}</>
+              )}
+              {assinaturaAtual.plano?.slug !== 'profissional' && assinaturaAtual.status !== 'TESTE' && (
                 <button 
                   className="btn btn-sm btn-primary ms-3"
                   onClick={() => handleAssinar(planos.find(p => p.slug === 'profissional'))}
                 >
                   Fazer upgrade →
+                </button>
+              )}
+              {assinaturaAtual.status === 'TESTE' && (
+                <button 
+                  className="btn btn-sm btn-success ms-3"
+                  onClick={() => navigate('/checkout')}
+                >
+                  Assinar agora →
                 </button>
               )}
             </div>

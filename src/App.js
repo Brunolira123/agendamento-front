@@ -15,6 +15,7 @@ import Cadastro from './pages/Cadastro';
 import LandingPage from './pages/LandingPage';
 import Planos from './pages/Planos';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import Checkout from './pages/Checkout';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -152,6 +153,11 @@ function AppRoutes() {
           <ServicoForm />
         </PrivateRoute>
       } />
+      <Route path="/checkout" element={
+    <PrivateRoute>
+      <Checkout />
+    </PrivateRoute>
+  } />
       
       {/* Redirecionamento padrão */}
       <Route path="*" element={<Navigate to="/" replace />} />

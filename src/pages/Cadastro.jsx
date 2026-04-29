@@ -8,17 +8,79 @@ function Cadastro() {
   const [erro, setErro] = useState('');
   const [planoSelecionado, setPlanoSelecionado] = useState(null);
   const [periodoSelecionado, setPeriodoSelecionado] = useState('mensal');
+  const [cpfStatus, setCpfStatus] = useState({ valid: null, message: '' });
+  const [emailStatus, setEmailStatus] = useState({ valid: null, message: '' });
   
   const [form, setForm] = useState({
     nomeEmpresa: '',
     slug: '',
     nicho: 'barbearia',
     email: '',
+    cpf: '',
     telefone: '',
     nomeDono: '',
     senha: '',
     confirmarSenha: ''
   });
+
+  // Função para formatar CPF
+  const formatCPF = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 11) {
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+        .replace(/-$/, '');
+    }
+    return value;
+  };
+
+  // Função para formatar telefone
+  const formatTelefone = (value) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 11) {
+      if (numbers.length === 11) {
+        return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      }
+      if (numbers.length === 10) {
+        return numbers.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      }
+    }
+    return value;
+  };
+
+  // Função para validar email
+  const validarEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
+
+  // Função para validar CPF
+  const validarCPF = (cpf) => {
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) return false;
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
+    
+    // Validar primeiro dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+    }
+    let resto = 11 - (soma % 11);
+    let digito1 = resto === 10 || resto === 11 ? 0 : resto;
+    if (digito1 !== parseInt(cpfLimpo.charAt(9))) return false;
+    
+    // Validar segundo dígito verificador
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+    }
+    resto = 11 - (soma % 11);
+    let digito2 = resto === 10 || resto === 11 ? 0 : resto;
+    if (digito2 !== parseInt(cpfLimpo.charAt(10))) return false;
+    
+    return true;
+  };
 
   // Carregar plano escolhido da página de planos
   useEffect(() => {
@@ -37,11 +99,53 @@ function Cadastro() {
   }, []);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // Formatação específica por campo
+    if (name === 'cpf') {
+      const cpfFormatado = formatCPF(value);
+      setForm({ ...form, cpf: cpfFormatado });
+      
+      // Validação em tempo real do CPF
+      const cpfLimpo = value.replace(/\D/g, '');
+      if (cpfLimpo.length === 11) {
+        if (!validarCPF(cpfFormatado)) {
+          setCpfStatus({ valid: false, message: '❌ CPF inválido' });
+        } else {
+          setCpfStatus({ valid: true, message: '✅ CPF válido' });
+          setTimeout(() => setCpfStatus({ valid: null, message: '' }), 3000);
+        }
+      } else if (cpfLimpo.length > 0 && cpfLimpo.length < 11) {
+        setCpfStatus({ valid: false, message: `⚠️ Faltam ${11 - cpfLimpo.length} dígitos` });
+      } else {
+        setCpfStatus({ valid: null, message: '' });
+      }
+    } 
+    else if (name === 'telefone') {
+      setForm({ ...form, [name]: formatTelefone(value) });
+    }
+    else if (name === 'email') {
+      setForm({ ...form, [name]: value });
+      
+      // Validação em tempo real do email
+      if (value.length > 0) {
+        if (!validarEmail(value)) {
+          setEmailStatus({ valid: false, message: '❌ E-mail inválido' });
+        } else {
+          setEmailStatus({ valid: true, message: '✅ E-mail válido' });
+          setTimeout(() => setEmailStatus({ valid: null, message: '' }), 3000);
+        }
+      } else {
+        setEmailStatus({ valid: null, message: '' });
+      }
+    }
+    else {
+      setForm({ ...form, [name]: value });
+    }
     
     // Auto-gera slug baseado no nome da empresa
-    if (e.target.name === 'nomeEmpresa') {
-      const slug = e.target.value
+    if (name === 'nomeEmpresa') {
+      const slug = value
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
@@ -54,6 +158,7 @@ function Cadastro() {
     e.preventDefault();
     setErro('');
     
+    // Validações
     if (form.senha !== form.confirmarSenha) {
       setErro('As senhas não coincidem');
       return;
@@ -61,6 +166,16 @@ function Cadastro() {
     
     if (form.senha.length < 6) {
       setErro('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    
+    if (!validarEmail(form.email)) {
+      setErro('Digite um e-mail válido');
+      return;
+    }
+    
+    if (form.cpf && !validarCPF(form.cpf)) {
+      setErro('Digite um CPF válido');
       return;
     }
     
@@ -74,6 +189,7 @@ function Cadastro() {
         nicho: form.nicho,
         email: form.email,
         telefone: form.telefone,
+        cpf: form.cpf.replace(/\D/g, ''), // Enviar apenas números
         nomeDono: form.nomeDono,
         senha: form.senha,
         planoId: planoSelecionado?.id || 2, // Padrão: Profissional (id=2)
@@ -192,15 +308,28 @@ function Cadastro() {
                   <div className="row">
                     <div className="col-md-6 mb-3">
                       <label className="form-label">E-mail *</label>
-                      <input
-                        type="email"
-                        name="email"
-                        className="form-control"
-                        placeholder="contato@barbearia.com"
-                        value={form.email}
-                        onChange={handleChange}
-                        required
-                      />
+                      <div className="input-group">
+                        <input
+                          type="email"
+                          name="email"
+                          className={`form-control ${emailStatus.valid === false ? 'is-invalid' : emailStatus.valid === true ? 'is-valid' : ''}`}
+                          placeholder="contato@barbearia.com"
+                          value={form.email}
+                          onChange={handleChange}
+                          required
+                        />
+                        {emailStatus.valid === true && (
+                          <span className="input-group-text bg-success text-white">✅</span>
+                        )}
+                        {emailStatus.valid === false && (
+                          <span className="input-group-text bg-danger text-white">❌</span>
+                        )}
+                      </div>
+                      {emailStatus.message && (
+                        <div className={`small mt-1 ${emailStatus.valid ? 'text-success' : 'text-danger'}`}>
+                          {emailStatus.message}
+                        </div>
+                      )}
                     </div>
                     <div className="col-md-6 mb-3">
                       <label className="form-label">Telefone *</label>
@@ -214,6 +343,35 @@ function Cadastro() {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">CPF do proprietário</label>
+                    <div className="input-group">
+                      <input
+                        type="text"
+                        name="cpf"
+                        className={`form-control ${cpfStatus.valid === false ? 'is-invalid' : cpfStatus.valid === true ? 'is-valid' : ''}`}
+                        placeholder="123.456.789-00"
+                        value={form.cpf}
+                        onChange={handleChange}
+                        maxLength={14}
+                      />
+                      {cpfStatus.valid === true && (
+                        <span className="input-group-text bg-success text-white">✅</span>
+                      )}
+                      {cpfStatus.valid === false && (
+                        <span className="input-group-text bg-danger text-white">❌</span>
+                      )}
+                    </div>
+                    {cpfStatus.message && (
+                      <div className={`small mt-1 ${cpfStatus.valid ? 'text-success' : 'text-danger'}`}>
+                        {cpfStatus.message}
+                      </div>
+                    )}
+                    <small className="text-muted">
+                      Opcional, mas necessário para emissão de nota fiscal
+                    </small>
                   </div>
 
                   <div className="mb-3">
